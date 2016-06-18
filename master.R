@@ -69,10 +69,15 @@ rotateMap <- function(angle, year){
   p <- p + theme_bw()
   p <- p + geom_polygon(data = world.df, aes(x = long, y = lat, group = group, fill = PAS))
   p <- p + scale_y_continuous(breaks = (-2:2) * 20) 
-  p <- p + scale_x_continuous(breaks = (-4:4) * 15) 
+  p <- p + scale_x_continuous(breaks = (-9:9) * 20) 
   p <- p + coord_map("ortho", orientation=c(61, angle, 0)) 
   p <- p + scale_fill_manual(breaks = c(0, 1),values = c("grey80",  "red"),guide = FALSE)
-  p <- p + theme(panel.grid.major = element_line(colour = "black"),panel.grid.minor = element_line(colour = "black"))
+  p <- p + theme(panel.grid.major = element_line(colour = "black"),
+                 panel.grid.minor = element_line(colour = "black"),
+                 axis.ticks = element_blank(), 
+                 axis.text.y = element_blank(),
+                 axis.text.x = element_blank())
+  p <- p + xlab("") + ylab("")
   p
 }
 
@@ -80,16 +85,16 @@ undebug(rotateMap)
 rotateMap(0,1950)
 # Création de l'animation avec le package animation ====
 
-# # Choix des années et des rotations
-# years <- seq(1900, 2020, by = 20)
-# nyears <- length(years)
-# angles <- seq(0, 360, length = nyears)
-# 
-# # Création du fichier HTML en faisant une boucle produisant les graphiques
-# saveHTML({
-#   ani.options(nmax = 360)
-#   for(i in 1:nyears){
-#     print(rotateMap(angle = angles[i], year = years[i]))
-#   }
-# }, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
-# 
+# Choix des années et des rotations
+years <- seq(1900, 2020, by = 10)
+nyears <- length(years)
+angles <- seq(0, 360, length = nyears)
+
+# Création du fichier HTML en faisant une boucle produisant les graphiques
+saveHTML({
+  ani.options(nmax = 360)
+  for(i in 1:nyears){
+    print(rotateMap(angle = angles[i], year = years[i]))
+  }
+}, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
+
