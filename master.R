@@ -50,21 +50,22 @@ world.df <- world.df[order(world.df$ordre),]
 # les pays qui n'ont pas encore le prélèvementà la source ont une date d'entrée du PAS qui vaut 9999
 world.df$annee.pas[is.na(world.df$annee.pas)==TRUE] <- 9999
 
-# Colorier ou non (0 ou 1)
-world.df$PAS <- 0
-world.df$PAS[which(world.df$annee.pas < year)] <- 1
-world.df$PAS <- factor(world.df$PAS)
-
 # ajout des centroides de la région principale de chaque pays à la base de données ayant adopté le PAS
-world_data <- cbind(worldMap@data,getSpPPolygonsLabptSlots(worldMap))
+centroides <- data.frame(getSpPPolygonsLabptSlots(worldMap))
+names(centroides) <- c("y","x")
+world_data <- cbind(worldMap@data,centroides)
 world_data_pas <- merge(world_data,df.pas,by.x = c("ADMIN"),by.y=c("region"))
 world_data_pas <- world_data_pas[order(world_data_pas$annee.pas),]
-
 
 # Fonction produisant le graphique ====
 # La fonction qui produit le graphique centré sur une coordonnée passée en argument
 # les pays qui ont le prélèvement à la source 
-rotateMap <- function(coord){
+rotateMap <- function(coord,year){
+  # Colorier ou non (0 ou 1)
+  world.df$PAS <- 0
+  world.df$PAS[which(world.df$annee.pas < year)] <- 1
+  world.df$PAS <- factor(world.df$PAS)
+  
   # Le graphique. C'est un ggplot classique mais la fonction "coord_map" fait
   # la projection
   p <- ggplot() 
@@ -78,25 +79,37 @@ rotateMap <- function(coord){
   p
 }
 
-
 # dessin d'une carte par pays ayant adopté le PAS, par ordre d'adoption du PAS
 pa <- 1
-coord_extract <- world_data_pas[,c(50,51)]
-names(coord_extract) <- c("y","x")
+coord_extract <- select(world_data_pas,annee.pas,y,x)
+
 # coord_extract <- mutate(coord_extract,y_ecart = c(0,diff(coord_extract$y)),x_ecart = c(0,diff(coord_extract$x)))
 coord_extract %>% mutate(y_ecart = c(0,diff(coord_extract$y)),x_ecart = c(0,diff(coord_extract$x))) -> coord_extract
 coord_extract %>% mutate(pa_y = y_ecart/pa,pa_x = x_ecart/pa,pa_y2 = y_ecart/pa_x,pa_x2 = x_ecart/pa_y) -> coord_extract
 coord_extract %>% mutate(pa_y2 = pmin(abs(pa_y2),pa)*sign(y_ecart),pa_x2 = pmin(abs(pa_x2),pa)*sign(x_ecart)) -> coord_extract
 coord_extract %>% mutate(nb = round(pmax(abs(y_ecart),abs(x_ecart)))) -> coord_extract
 
-coord_final <- data.frame(y = coord_extract[1,"y"],x = coord_extract[1,"x"])
+# boucle qui permet d'intercaler entre chaque point d'une liste de points, 
+# les points qui correspondent au déplacment entr ces deux points
+coord_final <- data.frame(y = coord_extract[1,"y"],x = coord_extract[1,"x"],annee.pas = coord_extract[1,"annee.pas"])
 for (i in 2:nrow(coord_extract)){
+  # i <- 2
   y <- coord_extract$y[i-1] + cumsum(rep(coord_extract$pa_y2[i],coord_extract$nb[i]))
   x <- coord_extract$x[i-1] + cumsum(rep(coord_extract$pa_x2[i],coord_extract$nb[i]))
   temp_df <- data.frame(y,x)
-  temp_df <- rbind(coord_extract[i-1,c("y","x")],temp_df)
+  temp_df$annee.pas <- coord_extract[i,"annee.pas"]
+  temp_df <- rbind(coord_extract[i-1,c("y","x","annee.pas")],temp_df)
   coord_final <- rbind(coord_final,temp_df)
 }
+
+# coord_final <- coord_extract
+# for(i in 1:nrow(coord_final)){
+# 
+#   print(i)
+#   print(rotateMap(coord_final[i,c("y","x")],coord_final[i+1,"annee.pas"]))
+# }
+# 
+
 
 # Création de l'animation avec le package animation ====
 
@@ -105,11 +118,29 @@ for (i in 2:nrow(coord_extract)){
 # nyears <- length(years)
 # angles <- seq(0, 360, length = nyears)
 # 
-# Création du fichier HTML en faisant une boucle produisant les graphiques
+# # Création du fichier HTML en faisant une boucle produisant les graphiques
 saveHTML({
   for(i in 1:nrow(coord_final)){
     print(i)
-    print(rotateMap(coord_final[i,]))
+    print(rotateMap(coord_final[i,c("y","x")],coord_final[i,"annee.pas"]))
+  }
+  for (i in 1:10){
+    print(rotateMap(c(2.513011,46.51277),2020))
+  }
+}, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
+
+
+
+# for(i in 1:nrow(coord_final)){
+#   name <- paste0("images\\",formatC(i,digits = 3,flag="0"),".png")
+#   print(i)
+#   rotateMap(coord_final[i,c("y","x")],coord_final[i,"annee.pas"]
+# }
+
+saveHTML({
+  ani.options(nmax = 360)
+  for(i in 1:nrow(coord_final)){
+    print(rotateMap(coord_final[i,c("y","x")],coord_final[i+1,"annee.pas"]))
   }
 }, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
 
