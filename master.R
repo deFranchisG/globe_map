@@ -1,4 +1,4 @@
-
+rm(list = ls())
 # Header ------------------------------------------------------------------
 
 # Ce programme colorie les pays sur le globe terrestre tout en le faisant 
@@ -20,7 +20,7 @@ library(rworldmap)
 library(ggplot2)
 library(animation)
 library(sp)
-
+library(dplyr)
 
 # Code --------------------------------------------------------------------
 # Création de la base de données pour les graphiques qui seront utilisés ====
@@ -70,9 +70,9 @@ rotateMap <- function(coord){
   p <- ggplot() 
   p <- p + theme_bw()
   p <- p + geom_polygon(data = world.df, aes(x = long, y = lat, group = group, fill = PAS))
-  p <- p + scale_y_continuous(breaks = (-2:2) * 20) 
-  p <- p + scale_x_continuous(breaks = (-4:4) * 15) 
-  p <- p + coord_map("ortho", orientation=c(coord[1], coord[2], 0)) 
+  p <- p + scale_y_continuous(breaks = (-8:8) * 10) 
+  p <- p + scale_x_continuous(breaks = (-20:20) * 10) 
+  p <- p + coord_map("ortho", orientation=c(coord[2], coord[1], 0)) 
   p <- p + scale_fill_manual(breaks = c(0, 1),values = c("grey80",  "red"),guide = FALSE)
   p <- p + theme(panel.grid.major = element_line(colour = "black"),panel.grid.minor = element_line(colour = "black"))
   p
@@ -80,9 +80,24 @@ rotateMap <- function(coord){
 
 
 # dessin d'une carte par pays ayant adopté le PAS, par ordre d'adoption du PAS
+pa <- 1
+coord_extract <- world_data_pas[,c(50,51)]
+names(coord_extract) <- c("y","x")
+# coord_extract <- mutate(coord_extract,y_ecart = c(0,diff(coord_extract$y)),x_ecart = c(0,diff(coord_extract$x)))
+coord_extract %>% mutate(y_ecart = c(0,diff(coord_extract$y)),x_ecart = c(0,diff(coord_extract$x))) -> coord_extract
+coord_extract %>% mutate(pa_y = y_ecart/pa,pa_x = x_ecart/pa,pa_y2 = y_ecart/pa_x,pa_x2 = x_ecart/pa_y) -> coord_extract
+coord_extract %>% mutate(pa_y2 = pmin(abs(pa_y2),pa)*sign(y_ecart),pa_x2 = pmin(abs(pa_x2),pa)*sign(x_ecart)) -> coord_extract
+coord_extract %>% mutate(nb = round(pmax(abs(y_ecart),abs(x_ecart)))) -> coord_extract
 
-coord <- world_data[3,c(50,51)]
-rotateMap(coord)
+coord_final <- data.frame(y = coord_extract[1,"y"],x = coord_extract[1,"x"])
+for (i in 2:nrow(coord_extract)){
+  y <- coord_extract$y[i-1] + cumsum(rep(coord_extract$pa_y2[i],coord_extract$nb[i]))
+  x <- coord_extract$x[i-1] + cumsum(rep(coord_extract$pa_x2[i],coord_extract$nb[i]))
+  temp_df <- data.frame(y,x)
+  temp_df <- rbind(coord_extract[i-1,c("y","x")],temp_df)
+  coord_final <- rbind(coord_final,temp_df)
+}
+
 # Création de l'animation avec le package animation ====
 
 # # Choix des années et des rotations
@@ -90,11 +105,11 @@ rotateMap(coord)
 # nyears <- length(years)
 # angles <- seq(0, 360, length = nyears)
 # 
-# # Création du fichier HTML en faisant une boucle produisant les graphiques
-# saveHTML({
-#   ani.options(nmax = 360)
-#   for(i in 1:nyears){
-#     print(rotateMap(angle = angles[i], year = years[i]))
-#   }
-# }, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
-# 
+# Création du fichier HTML en faisant une boucle produisant les graphiques
+saveHTML({
+  for(i in 1:nrow(coord_final)){
+    print(i)
+    print(rotateMap(coord_final[i,]))
+  }
+}, interval = 1, outdir=getwd(), movie.name = "PAStimeline2.html")
+
